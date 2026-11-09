@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets & runtime data
+.env
+cookies/*
+!cookies/README.md
+data/
+downloads/
+*.db
+*.log
