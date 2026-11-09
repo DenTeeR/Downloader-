@@ -64,14 +64,14 @@ async def fetch_spotify(kind: str, item_id: str, proxy: str | None = None) -> Sp
             resp = await client.get(url)
             resp.raise_for_status()
     except httpx.HTTPError as exc:
-        raise DownloadError("❌ اطلاعات این لینک از اسپاتیفای دریافت نشد.", detail=str(exc)) from exc
+        raise DownloadError("err_spotify_fetch", detail=str(exc)) from exc
 
     match = _NEXT_DATA_RE.search(resp.text)
     try:
         data = json.loads(match.group(1)) if match else {}
         entity = data["props"]["pageProps"]["state"]["data"]["entity"]
     except (KeyError, TypeError, json.JSONDecodeError) as exc:
-        raise DownloadError("❌ این لینک اسپاتیفای قابل خواندن نیست.", detail=str(exc)) from exc
+        raise DownloadError("err_spotify_fetch", detail=str(exc)) from exc
 
     title = entity.get("name") or entity.get("title") or "Spotify"
     cover = _best_image(entity)
@@ -99,7 +99,7 @@ async def fetch_spotify(kind: str, item_id: str, proxy: str | None = None) -> Sp
             cover_url=cover if kind == "album" else None,
         ))
     if not tracks:
-        raise DownloadError("❌ آهنگی در این لینک اسپاتیفای پیدا نشد.")
+        raise DownloadError("err_playlist_empty")
     return SpotifyCollection(kind, title, tracks)
 
 

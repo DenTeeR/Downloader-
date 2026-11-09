@@ -5,7 +5,7 @@ services:
     env_file: .env
     volumes:
       - ./data:/app/data
-      - ./cookies:/app/cookies:ro
+      - ./cookies:/app/cookies
 
   # Optional: local Bot API server, lifts the upload limit from 50 MB to 2000 MB.
   # Enable with:  docker compose --profile local-api up -d

@@ -43,7 +43,7 @@ async def gallery_download(config: Config, url: str, platform: str, workdir: Pat
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
-        raise DownloadError("⏱ زمان دانلود بیش از حد طول کشید.", detail=f"gallery-dl timeout {url}")
+        raise DownloadError("err_timeout", detail=f"gallery-dl timeout {url}")
 
     files = media_files_in(out_dir)
     if not files:
@@ -51,9 +51,7 @@ async def gallery_download(config: Config, url: str, platform: str, workdir: Pat
         log.info("gallery-dl failed (%s) for %s: %s", proc.returncode, url, err[-500:])
         low = err.lower()
         if "login" in low or "authorization" in low or "401" in low or "403" in low:
-            raise DownloadError(
-                "🔒 این محتوا خصوصی است یا ربات برای دسترسی به آن به کوکی نیاز دارد.",
-                detail=err,
-            )
-        raise DownloadError("❌ فایلی برای دانلود در این لینک پیدا نشد.", detail=err)
+            raise DownloadError("err_ig_login" if platform == "instagram" else "err_login",
+                                detail=err)
+        raise DownloadError("err_no_media", detail=err)
     return [MediaFile(path=p, kind=kind_for(p)) for p in files]

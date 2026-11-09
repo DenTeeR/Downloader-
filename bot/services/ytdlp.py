@@ -25,27 +25,22 @@ def friendly_error(exc: Exception, platform: str) -> DownloadError:
     text = str(exc).lower()
     if "sign in" in text or "login" in text or "cookies" in text or "private" in text \
             or "empty media response" in text or "not granting access" in text:
-        if platform == "instagram":
-            msg = "🔒 اینستاگرام اجازه دسترسی نداد. این پست خصوصی است یا ربات به کوکی اینستاگرام نیاز دارد."
-        elif platform == "youtube":
-            msg = "🔒 یوتیوب برای این ویدیو ورود به حساب می‌خواهد (محدودیت سنی/خصوصی یا نیاز به کوکی)."
-        else:
-            msg = "🔒 این محتوا خصوصی است یا نیاز به ورود به حساب دارد."
+        key = {"instagram": "err_ig_login", "youtube": "err_yt_login"}.get(platform, "err_login")
     elif platform == "youtube" and ("403" in text or "forbidden" in text):
-        msg = "🚫 یوتیوب دسترسی سرور ربات را محدود کرده است. لطفا بعدا امتحان کنید (ادمین: کوکی یوتیوب را تنظیم کنید)."
+        key = "err_yt_blocked"
     elif "unavailable" in text or "not available" in text or "404" in text or "removed" in text:
-        msg = "❌ این محتوا در دسترس نیست یا حذف شده است."
+        key = "err_unavailable"
     elif "drm" in text:
-        msg = "❌ این محتوا با DRM محافظت شده و قابل دانلود نیست."
+        key = "err_drm"
     elif "unsupported url" in text:
-        msg = "❌ این نوع لینک پشتیبانی نمی‌شود."
+        key = "err_unsupported_link"
     elif "no video formats" in text or "no video in this post" in text:
-        msg = "❌ فایلی برای دانلود در این لینک پیدا نشد."
+        key = "err_no_media"
     elif "live" in text and "stream" in text:
-        msg = "❌ دانلود پخش زنده امکان‌پذیر نیست."
+        key = "yt_live"
     else:
-        msg = "❌ دانلود با خطا مواجه شد. لطفا بعدا دوباره امتحان کنید."
-    return DownloadError(msg, detail=str(exc))
+        key = "err_download"
+    return DownloadError(key, detail=str(exc))
 
 
 class _Logger:
@@ -251,10 +246,7 @@ class YtDlp:
                          and kind_for(p) in {"video", "audio"}]
             files = [MediaFile(path=p, kind=kind_for(p), title=info.get("title")) for p in leftovers]
         if not files:
-            raise DownloadError(
-                "⚠️ حجم فایل بیشتر از حد مجاز ربات است یا فایلی دریافت نشد.",
-                detail=f"no output file for {url}",
-            )
+            raise DownloadError("err_too_large_or_empty", detail=f"no output file for {url}")
         return files
 
     async def download(self, url: str, platform: str, workdir: Path, *, audio: bool = False,

@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS downloads (
     created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_downloads_created ON downloads(created_at);
+CREATE TABLE IF NOT EXISTS settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS cache (
     key         TEXT PRIMARY KEY,
     payload     TEXT NOT NULL,
@@ -142,4 +146,17 @@ class Database:
 
     async def cache_delete(self, key: str) -> None:
         await self.db.execute("DELETE FROM cache WHERE key=?", (key,))
+        await self.db.commit()
+
+    # ---- settings (design, ...) ---------------------------------------------
+
+    async def get_setting(self, key: str) -> str | None:
+        async with self.db.execute("SELECT value FROM settings WHERE key=?", (key,)) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else None
+
+    async def set_setting(self, key: str, value: str) -> None:
+        await self.db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
+        )
         await self.db.commit()

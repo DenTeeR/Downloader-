@@ -10,9 +10,11 @@ from aiogram.enums import ChatMemberStatus, ChatType
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
-from . import keyboards, texts
 from .config import Config
 from .database import Database
+from .ui import Design
+from .ui.menus import join_keyboard
+from .ui.screens import send_screen
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +39,11 @@ class UserMiddleware(BaseMiddleware):
             await self.db.touch_user(user.id, user.username, user.first_name)
 
         if await self.db.is_banned(user.id):
+            design: Design = data["design"]
             if isinstance(event, Message) and event.chat.type == ChatType.PRIVATE:
-                await event.answer(texts.BANNED)
+                await send_screen(data["bot"], event.chat.id, design, "banned")
             elif isinstance(event, CallbackQuery):
-                await event.answer(texts.BANNED, show_alert=True)
+                await event.answer()
             return None
         return await handler(event, data)
 
@@ -91,11 +94,10 @@ class ForceJoinMiddleware(BaseMiddleware):
         if await self.is_member(bot, user.id):
             return await handler(event, data)
 
-        markup = keyboards.join_channels(self.config.force_join_channels)
-        if isinstance(event, Message):
-            await event.answer(texts.JOIN_REQUIRED, reply_markup=markup)
-        elif isinstance(event, CallbackQuery):
-            await event.answer(texts.JOIN_NOT_YET, show_alert=True)
-            if event.message:
-                await event.message.answer(texts.JOIN_REQUIRED, reply_markup=markup)
+        design: Design = data["design"]
+        markup = join_keyboard(design, self.config.force_join_channels)
+        if isinstance(event, CallbackQuery):
+            await event.answer(design.text("join_not_yet"), show_alert=True)
+        target = event.chat.id if isinstance(event, Message) else user.id
+        await send_screen(bot, target, design, "join_required", keyboard=markup)
         return None

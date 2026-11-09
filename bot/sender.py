@@ -9,7 +9,8 @@ from typing import Any, Awaitable, Callable, TypeVar
 from aiogram import Bot
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import (
-    FSInputFile, InputFile, InputMediaPhoto, InputMediaVideo, Message, ReplyParameters,
+    FSInputFile, InlineKeyboardMarkup, InputFile, InputMediaPhoto, InputMediaVideo, Message,
+    ReplyParameters,
 )
 
 from .services.media import MediaFile
@@ -75,8 +76,10 @@ async def _retry(call: Callable[[], Awaitable[T]]) -> T:
 
 
 async def send_items(bot: Bot, chat_id: int, items: list[Outgoing], caption: str,
-                     reply_to: int | None = None) -> list[dict[str, Any]]:
-    """Send everything; returns cache entries (kind + file_id) in order."""
+                     reply_to: int | None = None,
+                     keyboard: InlineKeyboardMarkup | None = None) -> list[dict[str, Any]]:
+    """Send everything; returns cache entries (kind + file_id) in order.
+    `keyboard` goes under single files (albums cannot carry buttons)."""
     reply = ReplyParameters(message_id=reply_to, allow_sending_without_reply=True) \
         if reply_to else None
     sent: list[Message] = []
@@ -102,14 +105,17 @@ async def send_items(bot: Bot, chat_id: int, items: list[Outgoing], caption: str
         others.insert(0, visual[0])
 
     for item in others:
-        sent.append(await _retry(lambda i=item: _send_single(bot, chat_id, i, caption, reply)))
+        sent.append(await _retry(
+            lambda i=item: _send_single(bot, chat_id, i, caption, reply, keyboard)))
 
     return [e for e in (_entry(m) for m in sent) if e]
 
 
 async def _send_single(bot: Bot, chat_id: int, item: Outgoing, caption: str,
-                       reply: ReplyParameters | None) -> Message:
-    common: dict[str, Any] = {"caption": caption, "reply_parameters": reply}
+                       reply: ReplyParameters | None,
+                       keyboard: InlineKeyboardMarkup | None = None) -> Message:
+    common: dict[str, Any] = {"caption": caption, "reply_parameters": reply,
+                              "reply_markup": keyboard}
     if item.kind == "video":
         return await bot.send_video(
             chat_id, video=item.media, thumbnail=item.thumbnail, width=item.width,

@@ -25,7 +25,8 @@ class Job:
     platform: Platform
     url: str
     key: str                       # cache key
-    label: str = ""                # e.g. "آهنگ ۲ از ۱۰"
+    index: int = 0                 # position in a playlist (1-based), 0 = single item
+    total: int = 0
     audio: bool = False
     height: int | None = None
     spotify: SpotifyTrack | None = field(default=None, repr=False)
@@ -74,7 +75,7 @@ class Downloader:
         if platform is Platform.SPOTIFY:
             parts = spotify_parts(url)
             if not parts:
-                raise DownloadError("❌ فقط لینک آهنگ، آلبوم یا پلی‌لیست اسپاتیفای پشتیبانی می‌شود.")
+                raise DownloadError("err_spotify_link")
             collection = await fetch_spotify(*parts, proxy=self.config.proxy)
             jobs = [
                 Job(platform, f"https://open.spotify.com/track/{t.id}",
@@ -82,7 +83,7 @@ class Downloader:
                 for t in collection.tracks
             ]
             jobs, total = self._limit(jobs)
-            self._number(jobs, "آهنگ")
+            self._number(jobs)
             title = collection.title if collection.kind != "track" else None
             return Plan(title, jobs, total)
 
@@ -91,30 +92,28 @@ class Downloader:
             if info.get("_type") == "playlist":
                 entries = [e for e in info.get("entries") or [] if e and e.get("url")]
                 if not entries:
-                    raise DownloadError("❌ آهنگی در این پلی‌لیست پیدا نشد.")
+                    raise DownloadError("err_playlist_empty")
                 jobs = [
                     Job(platform, e["url"], key=cache_key(platform, e["url"], "mp3"), audio=True)
                     for e in entries
                 ]
                 jobs, total = self._limit(jobs)
-                self._number(jobs, "آهنگ")
+                self._number(jobs)
                 return Plan(info.get("title"), jobs, total)
             return Plan(None, [Job(platform, url, cache_key(platform, url, "mp3"), audio=True)])
 
         if platform is Platform.INSTAGRAM:
             segments = [s for s in urlparse(url).path.split("/") if s]
             if not segments or not (_INSTAGRAM_CONTENT & set(segments)):
-                raise DownloadError(
-                    "❌ لطفا لینک پست، ریلز یا استوری اینستاگرام را بفرستید (نه لینک پروفایل)."
-                )
+                raise DownloadError("err_ig_profile")
 
         return Plan(None, [Job(platform, url, cache_key(platform, url))])
 
     @staticmethod
-    def _number(jobs: list[Job], noun: str) -> None:
+    def _number(jobs: list[Job]) -> None:
         if len(jobs) > 1:
             for i, job in enumerate(jobs, 1):
-                job.label = f"{noun} {i} از {len(jobs)}"
+                job.index, job.total = i, len(jobs)
 
     # ---- running -----------------------------------------------------------
 
@@ -187,7 +186,7 @@ class Downloader:
             if files:
                 break
         if not files:
-            raise error or DownloadError(f"❌ آهنگ «{track.title}» پیدا نشد.")
+            raise error or DownloadError("err_song_not_found", title=track.title)
         media = files[0]
 
         cover = await download_bytes(track.cover_url, self.config.proxy) if track.cover_url else None

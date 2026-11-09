@@ -17,11 +17,14 @@ IGNORED_EXT = {".part", ".ytdl", ".json", ".txt", ".temp", ".tmp"}
 
 
 class DownloadError(Exception):
-    """A failure whose message can be shown to the user as is."""
+    """A failure shown to the user. `key` names a text in bot/ui/texts.py
+    (editable by admins); `params` fill its placeholders."""
 
-    def __init__(self, user_message: str, *, detail: str | None = None) -> None:
-        super().__init__(detail or user_message)
-        self.user_message = user_message
+    def __init__(self, key: str = "err_download", *, detail: str | None = None,
+                 **params: str) -> None:
+        super().__init__(detail or key)
+        self.key = key
+        self.params = params
 
 
 @dataclass
